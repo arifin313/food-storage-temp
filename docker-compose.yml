@@ -1,0 +1,25 @@
+services:
+  foodtemp:
+    build: .
+    container_name: food-storage-temp
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    restart: "no"   # Docker Desktop chalu hole auto-start hobe na; shudhu "docker compose up" dile start hobe
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8080/api/status', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    environment:
+      MODE: sim              # sim = simulation, real = real sensor (POST /api/sensor)
+      SETPOINT: 20           # target temperature (C)
+      BAND: 1.0              # +/- hysteresis
+      AMBIENT: 32            # baire er temperature (sim)
+      START_TEMP: 28
+      ALARM_HIGH: 25
+      ALARM_LOW: 5
+      SIM_SPEED: 10          # sim time speed-up
+      MIN_SWITCH_SEC: 5      # compressor protection (real e 180+ dao)
+      ACTUATOR_URL: ""       # optional: relay/smart plug webhook (POST {"cooler":bool,"heater":bool})

@@ -1,0 +1,50 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Food Storage Temperature Controller</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
+main{max-width:900px;margin:auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{background:#1e293b;border-radius:12px;padding:14px}
+.big{font-size:2.4rem;font-weight:700}.lbl{opacity:.7;font-size:.85rem}
+.on{color:#4ade80}.off{color:#94a3b8}
+#alarm{background:#b91c1c;padding:10px;border-radius:8px;margin:12px 0;display:none}
+canvas{width:100%;height:240px;background:#1e293b;border-radius:12px;margin-top:12px}
+input,select,button{padding:8px;border-radius:8px;border:0;margin:4px 4px 4px 0}
+input{width:80px}button{background:#38bdf8;cursor:pointer;font-weight:600}
+a{color:#38bdf8}
+</style></head><body><main>
+<h2>🧊 Food Storage Room – Auto Temperature Control</h2>
+<div id="alarm"></div>
+<div class="grid">
+<div class="card"><div class="lbl">Current Temp</div><div class="big" id="t">--</div></div>
+<div class="card"><div class="lbl">Target</div><div class="big" id="sp">--</div></div>
+<div class="card"><div class="lbl">Humidity</div><div class="big" id="h">--</div></div>
+<div class="card"><div class="lbl">Cooler</div><div class="big" id="c">--</div></div>
+<div class="card"><div class="lbl">Heater</div><div class="big" id="he">--</div></div>
+</div>
+<canvas id="cv" width="860" height="240"></canvas>
+<div class="card" style="margin-top:12px">
+Target °C <input id="i_sp" type="number" step="0.5"> Band ±<input id="i_b" type="number" step="0.1">
+Alarm high <input id="i_ah" type="number"> Alarm low <input id="i_al" type="number">
+Ghorer baire temp (sim) <input id="i_am" type="number">
+Mode <select id="i_m"><option value="sim">Simulation</option><option value="real">Real sensor</option></select>
+<button onclick="save()">Save</button> <a href="/api/log">⬇ CSV log</a>
+</div></main>
+<script>
+let first=true;
+async function load(){
+ const s=await (await fetch('/api/status')).json();
+ t.textContent=s.temp+'°C';sp.textContent=s.setpoint+'°C';h.textContent=s.hum+'%';
+ for(const [id,v] of [['c',s.cooler],['he',s.heater]]){const e=document.getElementById(id);e.textContent=v?'ON':'OFF';e.className='big '+(v?'on':'off')}
+ alarm.style.display=s.alarm?'block':'none';alarm.textContent='⚠ '+s.alarm;
+ if(first){i_sp.value=s.setpoint;i_b.value=s.band;i_ah.value=s.alarm_high;i_al.value=s.alarm_low;i_am.value=s.ambient;i_m.value=s.mode;first=false}
+ draw(s)}
+function draw(s){const c=cv.getContext('2d'),W=cv.width,H=cv.height;c.clearRect(0,0,W,H);
+ const d=s.hist;if(d.length<2)return;const v=d.map(r=>r[1]).concat([s.setpoint]);
+ const mn=Math.min(...v)-1,mx=Math.max(...v)+1,y=x=>H-20-(x-mn)/(mx-mn)*(H-40);
+ c.strokeStyle='#facc15';c.setLineDash([6,4]);c.beginPath();c.moveTo(0,y(s.setpoint));c.lineTo(W,y(s.setpoint));c.stroke();c.setLineDash([]);
+ c.strokeStyle='#38bdf8';c.lineWidth=2;c.beginPath();d.forEach((r,i)=>{const x=i/(d.length-1)*W;i?c.lineTo(x,y(r[1])):c.moveTo(x,y(r[1]))});c.stroke();
+ c.fillStyle='#94a3b8';c.fillText(mx.toFixed(1)+'°C',4,12);c.fillText(mn.toFixed(1)+'°C',4,H-4)}
+async function save(){await fetch('/api/config',{method:'POST',body:JSON.stringify({setpoint:+i_sp.value,band:+i_b.value,alarm_high:+i_ah.value,alarm_low:+i_al.value,ambient:+i_am.value,mode:i_m.value})});}
+setInterval(load,2000);load();
+</script></body></html>
